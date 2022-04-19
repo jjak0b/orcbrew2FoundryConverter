@@ -1,0 +1,28 @@
+{
+  "name": "orcbrew2foundry-converter",
+  "version": "1.0.0",
+  "description": "Convert .orcbrew files to Foundry JSON format",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "foundry",
+    "foundry-vtt",
+    "orcbrew"
+  ],
+  "author": "jjak0b",
+  "license": "MIT",
+  "dependencies": {
+    "object-mapper": "^6.2.0"
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jjak0b/orcbrew2FoundryConverter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jjak0b/orcbrew2FoundryConverter/issues"
+  },
+  "homepage": "https://github.com/jjak0b/orcbrew2FoundryConverter#readme"
+}
