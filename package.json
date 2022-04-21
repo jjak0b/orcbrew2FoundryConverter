@@ -4,7 +4,7 @@
   "description": "Convert .orcbrew files to Foundry JSON format",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node test.js ./assets/all-content.orcbrew"
   },
   "keywords": [
     "foundry",
@@ -14,9 +14,9 @@
   "author": "jjak0b",
   "license": "MIT",
   "dependencies": {
+    "@yellowdig/cljs-tools": "^0.2.0",
     "object-mapper": "^6.2.0"
   },
-  "devDependencies": {},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/jjak0b/orcbrew2FoundryConverter.git"
