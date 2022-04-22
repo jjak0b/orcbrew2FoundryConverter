@@ -4,59 +4,50 @@ let durationRegex = /(?:(?<concentration>Concentration)(?:\D*))?(?:((?<amount>\d
 // foundry : orcbrew
 const map = {
     "name" : "name",
-    "type" : {
-        default: "spell"
-    },
-    "data.description" : "description",
-    // String / int
-    "data.duration.value": {
-        key: "duration",
+    "description": "data.description",
+    "duration": {
+        // String / int
+        key: "data.duration.value",
         transform: (text) => {
             let match = durationRegex.exec(text);
             return match.groups && "amount" in match.groups ? match.groups["amount"] : "";
         }
     },
-    // String
-    "data.duration.units": {
-        key: "duration",
-        transform: (text) => {
-            let match = durationRegex.exec(text);
-            return match.groups && "units" in match.groups ? match.groups["units"] : text;
+    "duration": [
+        {
+            // String
+            key: "data.duration.units",
+            transform: (text) => {
+                let match = durationRegex.exec(text);
+                return match.groups && "units" in match.groups ? match.groups["units"] : text;
+            }
+        },
+        {
+            // Boolean
+            key: "data.components.concentration",
+            transform: (text) => text.includes("Concentration")
         }
-    },
-    // ? 
-    "data.components.value": {
-        default: ""
-    },
-    // String
-    "data.materials.value" : "components.material-component",
+    ],
+    "components.material-component": [
+        {
+            // String
+            key: "data.materials.value"
+        },
+        {
+            // Boolean
+            // example: " ... which th spell consumes"
+            key: "data.materials.consumed",
+            transform: ( text ) => text.includes("consumes")
+        }
+    ],
     // Boolean
-    "data.components.material": "components.material",
+    "components.material": "data.components.material",
     // Boolean
-    "data.components.vocal":  "components.verbal",
+    "components.verbal": "data.components.vocal",
     // Boolean
-    "data.components.somatic": "components.somatic",
+    "components.somatic": "data.components.somatic",
     // Boolean
-    "data.components.ritual": "ritual",
-    // Boolean
-    "data.components.concentration": {
-        key: "duration",
-        transform: (text) => text.includes("Concentration")
-    },
-    // Boolean
-    "data.materials.consumed" : {
-        // example: " ... which th spell consumes"
-        key: "components.material-component",
-        transform: ( text ) => text.includes("consumes")
-    },
-    // ? 
-    "data.materials.cost" : {
-        default:  ""
-    },
-    // ? 
-    "data.materials.supply" : {
-        default:  ""
-    },
+    "ritual": "data.components.ritual"
 };
 
 
