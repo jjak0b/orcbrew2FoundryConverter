@@ -37,7 +37,7 @@ const map = {
  */
  function transformOptions(options, associativeMap) {
     let choices = [];
-    for( key in options ) {
+    for( const key in options ) {
         if( key in associativeMap )
             choices.push(associativeMap[key]);
     }
