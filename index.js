@@ -1,7 +1,7 @@
 // Thanks to god ( or thanks to its developer ) ... a library that works ...
 const edn = require('@yellowdig/cljs-tools').edn;
 const objectMapper = require('object-mapper');
-
+const Package = require("./model/Package");
 
 const mapSpell = require("./model/maps/spell");
 const mapClass = require("./model/maps/class");
@@ -15,23 +15,23 @@ const featDefaults = require("./model/defaults/feature");
 
 const contentMap = {
     "classes" : {
-        key: "items[]+",
+        key: "classes",
         transform: (obj) => toList(obj, mapClass, classDefaults)
     },
     "subclasses" : {
-        key: "items[]+",
+        key: "subclasses",
         transform: (obj) => toList(obj, mapSubClass, subClassDefaults)
     },
     "spells" : {
-        key: "items[]+",
+        key: "spells",
         transform: (obj) => toList(obj, mapSpell, spellDefaults)
     },
     "feats" : {
-        key: "items[]+",
+        key: "feats",
         transform: (obj) => toList(obj, mapFeat, featDefaults)
     },
     "invocations" : {
-        key: "items[]+",
+        key: "invocations",
         transform: (obj) => toList(obj, mapFeat, featDefaults)
     }
 }
@@ -54,6 +54,7 @@ function toList(src, map, defaults) {
     return items;
 }
 
+
 /**
  * 
  * @param {String} ednString content in EDN format
@@ -65,37 +66,79 @@ function edn2Obj( ednString ) {
 }
 
 /**
+ * 
+ * @param {Object} value 
+ * @param {Integer} depth
+ */
+function getFirstNestedObjectAtDepth(value, depth ) {
+    if( depth <= 0 ) {
+        return value;
+    }
+    else {
+        for( const key in value ) {
+            if( value[ key ] === Object(value[ key ]) ) {
+                return getFirstNestedObjectAtDepth(value[ key ], depth-1);
+            }
+        }
+    }
+}
+
+/**
  * Map and adapt orcbrew data to Foundry data
  * @param {Object} orcbrewObj 
- * @returns {Object}
+ * @returns {Array<Package>} Array of compendium
  */
 function orcbrew2Foundry( orcbrewObj ) {
 	
 	let contentKeys = Object.keys(orcbrewObj);
+    let compendiums = [];
 
 	// if keys are content-related (single orcbrew content)
+    // then normalize to orcbrewObj = object[ valueOf('option-pack') ]
 	if( contentKeys.some((key) => (key in contentMap)) ) {
-		return objectMapper(orcbrewObj, contentMap);
+        
+        // first level is the assetType, second level is the assetName
+        let objContainingContentName = getFirstNestedObjectAtDepth(orcbrewObj, 2);
+        if( !('option-pack' in objContainingContentName)  ) {
+            console.error("Error: Expected 'option-pack' field not found on depth level 2");
+        }
+        else {
+            let temp = {};
+            contentKeys = [
+                objContainingContentName['option-pack']
+            ];
+            temp[ contentKeys[0] ] = orcbrewObj;
+            // replace its value
+            orcbrewObj = temp;
+        }
 	}
-	// else keys are about a map of orcbrew contents
-	else {
-		let contentModules = [];
-		let contentModule = null;
-		for (const key of contentKeys) {
+    // Now keys are about a map of orcbrew contents
+	
+    for (const key of contentKeys) {
 
-			let foundryPackage = objectMapper(orcbrewObj[ key ], contentMap );
+        let foundryPackage = objectMapper(orcbrewObj[ key ], contentMap );
 
-			contentModule = {
-				name: key,
-				data: foundryPackage
-			};
+        let compendiumLabel = ""+key;
+        let compendiumName = (""+key).replace(/\W/, '-');
+        let items = [];
 
-			contentModules.push(contentModule);
-		}
-		return {
-			"mudules": contentModules
-		}
-	}
+        for( const orcbrewAssetType in foundryPackage ) {
+            items = foundryPackage[orcbrewAssetType];
+            if( Array.isArray(items) && items.length > 0 ) {
+                compendium = new Package(
+                    compendiumName,
+                    compendiumLabel,
+                    items[0].type,
+                    items
+                );
+    
+                compendiums.push(compendium);
+            }
+
+        }
+    }
+
+    return compendiums
 }
 
 module.exports = {
