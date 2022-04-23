@@ -13,7 +13,7 @@ const map = {
     */
     "prereqs[]": {
         key: "data.requirements",
-        transform: (list) => list.toString()
+        transform: (list) => list ? list.toString() : null
     },
 
     /* TODO: apply props as feature effects
