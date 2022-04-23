@@ -119,7 +119,7 @@ function orcbrew2Foundry( orcbrewObj ) {
         let foundryPackage = objectMapper(orcbrewObj[ key ], contentMap );
 
         let compendiumLabel = ""+key;
-        let compendiumName = (""+key).replace(/\W/, '-');
+        let compendiumName = (""+key).replace(/\W/g, '-');
         let items = [];
 
         for( const orcbrewAssetType in foundryPackage ) {
