@@ -1,5 +1,15 @@
+const objectMapper = require("object-mapper");
+
 const skills = require("./skill");
 const modifiers = require("./modifiers");
+const feature = require("./feature");
+
+const traitMap = {
+    "level": {
+        key: "data.requirements",
+        transform: (list) => list ? list.toString() : null
+    }
+}
 
 const map = {
 
@@ -26,14 +36,24 @@ const map = {
     "spellcasting.ability": {
         key: "data.spellcasting.ability",
         transform: (value) => modifiers.associativeMap[value] || ""
+    },
+
+    "traits[]": {
+        key: "",
+        transform: (trait) => {
+            let mTraitMap = Object.assign({}, feature);
+            mTraitMap = Object.assign(mTraitMap, traitMap);
+
+            return objectMapper(trait, mTraitMap);            
+        }
     }
 };
 
 /**
- * 
+ * Map keys of options to values of associativeMap into an array
  * @param {Object} options 
  * @param {Object} associativeMap 
- * @returns 
+ * @returns {Array<Object>}
  */
  function transformOptions(options, associativeMap) {
     let choices = [];

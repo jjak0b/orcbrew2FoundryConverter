@@ -1,4 +1,103 @@
 const objectMapper = require("object-mapper");
+const { capitalize } = require("../../utils");
+const { createID } = require("./utils/asset");
+
+const AssetRepository = require("../../repositories/AssetRepository");
+const assetRepo = AssetRepository.prototype.getInstance();
+
+const itemMap = require("./item");
+const itemDefaults = require("../defaults/item");
+const skills = require("./skill");
+
+const customItemMap = {
+    "id": {
+        key: "_id",
+        transform: (value) => createID(value)
+    },
+    "name" : "name",
+    "quantity": "data.quantity"
+};
+
+const spellKnownMap = {
+    "options[]":{
+        key: "data.items[]+",
+        transform: (option, srcObj, destObj) => {
+            const asset = assetRepo.getAsset("spell", option.key);
+            return asset ? asset.convertedData : null;
+        }
+    }
+};
+
+const treasureMap = {
+    "gp": {
+        "map-value.quantity": "gp"
+    },
+    "sp": {
+        "map-value.quantity": "sp"
+    },
+    "cp": {
+        "map-value.quantity": "cp"
+    },
+    "pp": {
+        "map-value.quantity": "pp"
+    },
+    "ep": {
+        "map-value.quantity": "ep"
+    }
+};
+
+const levelUnlockKeyRgex = /level-(?<level>\d+)/i;
+const classMap = {
+    "skill-proficiency" : {
+        "options[].key" : {
+            key: "data.skills.value[]+",
+            transform: (key) => key in skills.associativeMap ? skills.associativeMap[key] : key
+        }
+    },
+    // unlocks at levels
+    "levels": {
+        "options[]": [
+            // features
+            {
+                key: "data.items[]+",
+                transform: (option) => {
+                    let match = levelUnlockKeyRgex.exec(option.key);
+                    if( match.groups && match.groups["level"] ) {
+                        const level = match.groups["level"];
+                        let items = [];
+                        let features = [];
+                        for( const selection of option.selections ) {
+                            switch(selection.key) {
+                                case "hit-points":
+                                    // none / unsupported
+                                    break
+                                case "asi-or-feat":
+                                    let asset = null;
+                                    switch(selection.option.key) {
+                                        case "ability-score-improvement":
+                                            features.push("asi");
+                                            // note: TODO may there be the specific asi mod value
+                                            break;
+                                        case "feat":
+                                            break
+                                    }
+                                    break
+                                default: // class feature
+                                    if( selection.options ) {
+                                        features = features.concat( selection.options.map((option) => option.key ) );
+                                    }
+                                    else if (selection.option) {
+                                        features.push( selection.option.key );
+                                    }
+                                    break
+                            }
+                        }
+                    }
+                }
+            }
+        ]
+    }
+};
 
 const selectionsMap = {
     "alignment" : {
@@ -25,62 +124,102 @@ const selectionsMap = {
         "option.map-value.cha" : "data.abilities.cha.value",
     },
     "treasure" : {
-        "options[]": [
+        "options":  {
+            key: "data.currency",
+            transform: (options, srcObj, destObj ) => {
+                let value = {};
+                for( const option of options) {
+                    value = Object.assign(value, transformOptions(option, treasureMap, null ) );
+                }
+
+                return value;
+            }
+        }
+    },
+    "equipment": {
+        "options[]" : {
+            key: "data.items[]+",
+            transform: (option) => objectMapper(option, itemMap)
+        }
+    },
+    "feat": {
+        "options[]": {
+            key: "data.items[]+",
+            transform: (option) => {
+                let asset = assetRepo.getAsset("feat", option.key);
+                return asset && asset.convertedData ? asset.convertedData : null;
+                
+            }
+        }
+    },
+    "class": {
+        "options[]" : [
             {
-                key: "data.currency.gp",
-                transform: (option) => option.key == "gp" ? option["map-value"]["quantity"] : 0,
-                default: 0
+                // class related staff
+                key: "data.items[]+",
+                transform: (option, srcObj, destObj) => {
+                    const asset = assetRepo.getAsset("class", option.key);
+                    let classData = asset ? asset.convertedData : null;
+    
+                    classdata = transformOptions(option2, classMap, classData);
+                    
+ 
+                    return classData;
+                }
             },
+            // spell and features related staff
             {
-                key: "data.currency.sp",
-                transform: (option) => option.key == "sp" ? option["map-value"]["quantity"] : 0,
-                default: 0
-            },
-            {
-                key: "data.currency.cp",
-                transform: (option) => option.key == "cp" ? option["map-value"]["quantity"] : 0,
-                default: 0
-            },
-            {
-                key: "data.currency.pp",
-                transform: (option) => option.key == "pp" ? option["map-value"]["quantity"] : 0,
-                default: 0
-            },
-            {
-                key: "data.currency.ep",
-                transform: (option) => option.key == "ep" ? option["map-value"]["quantity"] : 0,
-                default: 0
+                key: "data.items[]+",
+                transform: (option, srcObj, destObj) => {
+                    // const asset = assetRepo.getAsset("class", option.key);
+
+                    for( const option2 of option.selections ) {
+                        if( option2.key.endWith("cantrips-known")
+                        || option2.key.endWith("spells-known") ) {
+                            items = objectMapper(option2, destObj, spellKnownMap);
+                        }
+                    }
+                }
             }
         ]
+    }
+};
+
+
+const map = {
+    "id": {
+        key: "_id",
+        transform: (value) => createID(value)
+    },
+    "values.character-name": "name",
+    "values.image-url": "img",
+    "values.description": "data.details.biography.value",
+    "values.flaws": "data.details.flaw",
+    "values.ideals": "data.details.ideal",
+    "values.bonds": "data.details.bond",
+    "values.personality-trait-1": "data.details.trait",
+    "values.xps": "data.details.xp.value",
+    "values.current-hit-points": "data.attributes.hp.value",
+    "selections[]": [
+        {
+            key: "data.items[]+",
+            transform: (selection, srcObj, destObj) => transformOptions(selection, selectionsMap, destObj)
+        }
+    ],
+    "values.custom-equipment[]": {
+        key: "data.items[]+",
+        transform: (item) => objectMapper(item, customItemMap)
     }
 }
 
 
-const map = {
-    "character.values.character-name": "name",
-    "character.values.image-url": "img",
-    "character.values.description": "data.details.biography.value",
-    "character.values.flaws": "data.details.flaw",
-    "character.values.ideals": "data.details.ideal",
-    "character.values.bonds": "data.details.bond",
-    "character.values.personality-trait-1": "data.details.trait",
-    "character.values.xps": "data.details.xp.value",
-    "character.values.current-hit-points": "data.attributes.hp.value",
-    "character.selections[]": [
-        {
-            // key: "data",
-            transform: (selection, srcObj, destObj) => {
-                if( selection.key in selectionsMap ) {
-                    return objectMapper(selection, destObj, selectionsMap[selection.key])
-                }
-            }
-        }
-    ]
-    
-}
-
-function capitalize(string) {
-    return string.charAt(0).toUpperCase() + string.slice(1);
-}
+function transformOptions(option, optionMap, destObj) {
+    if( option.key in optionMap ) {
+        if( destObj )
+            return objectMapper(option, destObj, optionMap[option.key]);
+        else 
+            return objectMapper(option, optionMap[option.key]);
+    }
+};
 
 module.exports = map;
