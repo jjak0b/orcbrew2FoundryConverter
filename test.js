@@ -20,9 +20,9 @@ else{
 		}
 		 
 		const orcbrewObj = edn2Obj(ednString);
-		const foundryObj = orcbrew2Foundry(orcbrewObj);
-	
-		const jsonStr = JSON.stringify(foundryObj, null, 2);
+		const foundryCompendiums = orcbrew2Foundry(orcbrewObj);
+		const jsonStr = JSON.stringify(foundryCompendiums, null, 2);
+		fs.writeFileSync(outputFilename, jsonStr, "utf-8");
 		console.log("Foundry data:", jsonStr );
 	});
 }

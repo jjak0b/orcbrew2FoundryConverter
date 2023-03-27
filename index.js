@@ -2,53 +2,76 @@
 const edn = require('@yellowdig/cljs-tools').edn;
 const objectMapper = require('object-mapper');
 const Package = require("./model/Package");
+const { createID } = require("./utils/asset");
+
+const AssetRepository = require("./repositories/AssetRepository");
+const assetRepo = AssetRepository.prototype.getInstance();
 
 const mapSpell = require("./model/maps/spell");
 const mapClass = require("./model/maps/class");
 const mapSubClass = require("./model/maps/subclass");
 const mapFeat = require("./model/maps/feature");
+const mapCharacter = require("./model/maps/character");
 
 const spellDefaults = require("./model/defaults/spell");
 const classDefaults = require("./model/defaults/class");
 const subClassDefaults = require("./model/defaults/subclass");
 const featDefaults = require("./model/defaults/feature");
+const characterDefaults = require("./model/defaults/character");
+
+const Asset = require('./model/Asset');
 
 const contentMap = {
     "classes" : {
         key: "classes",
-        transform: (obj) => toList(obj, mapClass, classDefaults)
+        transform: (obj) => toList("class", obj, mapClass, classDefaults)
     },
     "subclasses" : {
         key: "subclasses",
-        transform: (obj) => toList(obj, mapSubClass, subClassDefaults)
+        transform: (obj) => toList("subclass", obj, mapSubClass, subClassDefaults)
     },
     "spells" : {
         key: "spells",
-        transform: (obj) => toList(obj, mapSpell, spellDefaults)
+        transform: (obj) => toList("spell", obj, mapSpell, spellDefaults)
     },
     "feats" : {
         key: "feats",
-        transform: (obj) => toList(obj, mapFeat, featDefaults)
+        transform: (obj) => toList("feat", obj, mapFeat, featDefaults)
     },
     "invocations" : {
         key: "invocations",
-        transform: (obj) => toList(obj, mapFeat, featDefaults)
+        transform: (obj) => toList("invocation", obj, mapFeat, featDefaults)
+    },
+    "character": {
+        key: "character",
+        transform: (obj) => {
+            let item = objectMapper(obj["character"], Object.assign({}, characterDefaults), mapCharacter);
+            return item;
+        }
     }
 }
 
 /**
- * 
+ * @param {String} type item type
  * @param {Object} src object to map
  * @param {Object} map mapper obj
  * @param {Object} defaults default dest values
  * @returns 
  */
-function toList(src, map, defaults) {
+function toList(type, src, map, defaults) {
     let items = [];
     let item = null;
     for (const key in src) {
         item = objectMapper(src[key], Object.assign({}, defaults), map);
+        if( !item._id )
+            item._id = createID(key);
         items.push(item);
+
+        assetRepo.addAsset(new Asset(
+            type,
+            key,
+            item
+        ));
     }
 
     return items;
@@ -85,11 +108,12 @@ function getFirstNestedObjectAtDepth(value, depth ) {
 
 /**
  * Map and adapt orcbrew data to Foundry data
- * @param {Object} orcbrewObj 
+ * @param {Object} orcbrewObj  orcbrew content data
+ * @param {Object} orcbrewCharacterObj orcbrew character data
  * @returns {Array<Package>} Array of compendium
  */
-function orcbrew2Foundry( orcbrewObj ) {
-	
+function orcbrew2Foundry( orcbrewObj, orcbrewCharacterObj = null ) {
+
 	let contentKeys = Object.keys(orcbrewObj);
     let compendiums = [];
 
@@ -119,7 +143,7 @@ function orcbrew2Foundry( orcbrewObj ) {
         let foundryPackage = objectMapper(orcbrewObj[ key ], contentMap );
 
         let compendiumLabel = ""+key;
-        let compendiumName = (""+key).replace(/\W/g, '-');
+        let compendiumName = (""+key).replace(/\W/g, '-').toLowerCase();
         let items = [];
 
         for( const orcbrewAssetType in foundryPackage ) {
@@ -128,14 +152,36 @@ function orcbrew2Foundry( orcbrewObj ) {
                 compendium = new Package(
                     compendiumName,
                     compendiumLabel,
-                    items[0].type,
+                    "Item",
                     items
                 );
     
                 compendiums.push(compendium);
             }
-
         }
+    }
+
+
+
+    if( orcbrewCharacterObj ) {
+        let playerName = orcbrewCharacterObj.character["player-name"];
+        let characterName = orcbrewCharacterObj.character["character-name"];
+
+        compendiumName = "Character";
+        compendiumLabel = "Character";
+        
+        items = [];
+
+        items.push(
+            objectMapper(orcbrewObj[ "character" ], contentMap )
+        );
+
+        compendiums.push(new Package(
+            compendiumName,
+            compendiumLabel,
+            "Actor",
+            items
+        ));
     }
 
     return compendiums
